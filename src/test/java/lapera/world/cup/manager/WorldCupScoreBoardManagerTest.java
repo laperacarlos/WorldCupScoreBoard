@@ -7,11 +7,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class WorldCupScoreBoardManagerTest {
     private static ScoreBoardManager scoreBoardManager;
@@ -30,10 +32,10 @@ public class WorldCupScoreBoardManagerTest {
     @Test
     public void shouldStartNewGame() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13),  true);
         
         //when
-        scoreBoardManager.startGame(newGame);
+        scoreBoardManager.processGame(newGame);
         
         //then
         final List<Game> liveGames = scoreBoardManager.getLiveGames();
@@ -42,59 +44,59 @@ public class WorldCupScoreBoardManagerTest {
                 () -> assertEquals(1, liveGames.size()),
                 () -> assertEquals(0, liveGame.getHomeScore()),
                 () -> assertEquals(0, liveGame.getAwayScore()),
-                () -> assertFalse(liveGame.isFinished()));
+                () -> assertTrue(liveGame.isLive()));
     }
 
     @Test
     public void shouldNotStartNewGameWhenHomeTeamMissing() {
         //given
-        final Game firstGame = new Game(null, "Bianconeri", null, null, false);
-        final Game secondGame = new Game("", "Bianconeri", null, null, false);
+        final Game firstGame = new Game(null, "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        final Game secondGame = new Game("", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 14), true);
 
         //when
-        scoreBoardManager.startGame(firstGame);
-        scoreBoardManager.startGame(secondGame);
-
         //then
-        assertEquals(0, scoreBoardManager.getLiveGames().size());
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(firstGame)),
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(secondGame)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().size()));
     }
 
     @Test
     public void shouldNotStartNewGameWhenAwayTeamMissing() {
         //given
-        final Game firstGame = new Game("Rossoneri", null, null, null, false);
-        final Game secondGame = new Game("Rossoneri", "", null, null, false);
+        final Game firstGame = new Game("Rossoneri", null, null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        final Game secondGame = new Game("Rossoneri", "", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 14), true);
 
         //when
-        scoreBoardManager.startGame(firstGame);
-        scoreBoardManager.startGame(secondGame);
-
         //then
-        assertEquals(0, scoreBoardManager.getLiveGames().size());
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(firstGame)),
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(secondGame)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().size()));
     }
 
     @Test
     public void shouldNotStartNewGameWhenGameMarkedAsFinished() {
         //given
-        final Game firstGame = new Game("Rossoneri", "Bianconeri", null, null, true);
+        final Game firstGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), false);
         
         //when
-        scoreBoardManager.startGame(firstGame);
-
         //then
-        assertEquals(0, scoreBoardManager.getLiveGames().size());
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(firstGame)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().size()));
     }
 
 
     @Test
     public void shouldUpdateScoreBoard() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", 3, 0, false);
-        scoreBoardManager.startGame(newGame);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(newGame);
+        final Game updatedScore = updateGame(newGame, 3, 0, true);
 
         //when
-        scoreBoardManager.updateScore(updatedScore);
+        scoreBoardManager.processGame(updatedScore);
 
         //then
         final Game updatedGame = scoreBoardManager.getLiveGames().get(0);
@@ -106,126 +108,121 @@ public class WorldCupScoreBoardManagerTest {
     @Test
     public void shouldNotUpdateScoreBoardWhenHomeScoreMissing() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", null, 2, false);
-        scoreBoardManager.startGame(newGame);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(newGame);
+        final Game updatedScore = updateGame(newGame, null, 2, true);
         
         //when
-        scoreBoardManager.updateScore(updatedScore);
-
         //then
-        final Game updatedGame = scoreBoardManager.getLiveGames().get(0);
         assertAll("Group assertions of Game scores",
-                () -> assertEquals(0, updatedGame.getHomeScore()),
-                () -> assertEquals(0, updatedGame.getAwayScore()));
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(updatedScore)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getHomeScore()),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getAwayScore()));
     }
 
     @Test
     public void shouldNotUpdateScoreBoardWhenAwayScoreMissing() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", 3, null, false);
-        scoreBoardManager.startGame(newGame);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(newGame);
+        final Game updatedScore = updateGame(newGame, 3, null, true);
         
         //when
-        scoreBoardManager.updateScore(updatedScore);
-
         //then
-        final Game updatedGame = scoreBoardManager.getLiveGames().get(0);
         assertAll("Group assertions of Game scores",
-                () -> assertEquals(0, updatedGame.getHomeScore()),
-                () -> assertEquals(0, updatedGame.getAwayScore()));
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(updatedScore)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getHomeScore()),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getAwayScore()));
     }
 
     @Test
     public void shouldNotUpdateScoreBoardWhenHomeScoreNegative() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", -2, 2, false);
-        scoreBoardManager.startGame(newGame);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(newGame);
+        final Game updatedScore = updateGame(newGame, -2, 2, true);
 
         //when
-        scoreBoardManager.updateScore(updatedScore);
-
         //then
-        final Game updatedGame = scoreBoardManager.getLiveGames().get(0);
         assertAll("Group assertions of Game scores",
-                () -> assertEquals(0, updatedGame.getHomeScore()),
-                () -> assertEquals(0, updatedGame.getAwayScore()));
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(updatedScore)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getHomeScore()),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getAwayScore()));
     }
 
     @Test
     public void shouldNotUpdateScoreBoardWhenAwayScoreNegative() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", 3, -5, false);
-        scoreBoardManager.startGame(newGame);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(newGame);
+        final Game updatedScore = updateGame(newGame, 3, -5, true);
 
         //when
-        scoreBoardManager.updateScore(updatedScore);
-
         //then
-        final Game updatedGame = scoreBoardManager.getLiveGames().get(0);
         assertAll("Group assertions of Game scores",
-                () -> assertEquals(0, updatedGame.getHomeScore()),
-                () -> assertEquals(0, updatedGame.getAwayScore()));
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(updatedScore)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getHomeScore()),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().get(0).getAwayScore()));
     }
     
     @Test
     public void shouldNotUpdateScoreBoardWhenGameIsNotStarted() {
         //given
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", 3, 0, false);
+        final Game updatedScore = new Game("Rossoneri", "Bianconeri", 3, 0, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
 
         //when
-        scoreBoardManager.updateScore(updatedScore);
-
         //then
-        assertEquals(0, scoreBoardManager.getLiveGames().size());
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(updatedScore)),
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().size()));
     }
 
     @Test
-    public void shouldRemoveFromLiveScoreBoardAfterUpdateWhenGameIsFinished() {
+    public void shouldMoveToFinishedScoreBoardWithUpdatedScoreWhenGameIsFinished() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game updatedScore = new Game("Rossoneri", "Bianconeri", 7, 0, true);
-        scoreBoardManager.startGame(newGame);
+        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(newGame);
+        final Game updatedScore = updateGame(newGame, 7, 0, false);
         
         //when
-        scoreBoardManager.updateScore(updatedScore);
+        scoreBoardManager.processGame(updatedScore);
         
         //then
-        assertEquals(0, scoreBoardManager.getLiveGames().size());
+        final List<Game> finishedGames = scoreBoardManager.getFinishedGames();
+        final Game finishedGame = finishedGames.get(0);
+        
+        assertAll(
+                () -> assertEquals(0, scoreBoardManager.getLiveGames().size()),
+                () -> assertEquals(1, finishedGames.size()),
+                () -> assertEquals(7, finishedGame.getHomeScore()),
+                () -> assertEquals(0, finishedGame.getAwayScore()));
     }
 
     @Test
-    public void shouldRemoveFromLiveScoreBoardAfterEndingGame() {
+    public void shouldNotEndGameWhenGameIsNotStarted() {
         //given
-        final Game newGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game endedGame = new Game("Rossoneri", "Bianconeri", 7, 0, true);
-        scoreBoardManager.startGame(newGame);
+        final Game endedGame = new Game("Rossoneri", "Bianconeri", 7, 0, LocalDateTime.of(2024, 10,13, 13, 13, 13), false);
 
         //when
-        scoreBoardManager.endGame(endedGame);
-
         //then
-        assertEquals(0, scoreBoardManager.getLiveGames().size());
+        assertThrows(IllegalArgumentException.class, () -> scoreBoardManager.processGame(endedGame));
     }
 
     @Test
     public void shouldReturnSortedLiveScoreBoard() {
         //given
-        final Game firstGame = new Game("Rossoneri", "Bianconeri", null, null, false);
-        final Game secondGame = new Game("ManU", "ManC", null, null, false);
-        final Game thirdGame = new Game("FCB", "RCM", null, null, false);
-        final Game firstGameUpdated = new Game("Rossoneri", "Bianconeri", 5, 1, false);
-        final Game secondGameUpdated = new Game("FCB", "RCM", 6, 0, false);
-        scoreBoardManager.startGame(firstGame);
-        scoreBoardManager.startGame(secondGame);
-        scoreBoardManager.startGame(thirdGame);
+        final Game firstGame = new Game("Rossoneri", "Bianconeri", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 13), true);
+        scoreBoardManager.processGame(firstGame);
+        final Game secondGame = new Game("ManU", "ManC", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 14), true);
+        scoreBoardManager.processGame(secondGame);
+        final Game thirdGame = new Game("FCB", "RCM", null, null, LocalDateTime.of(2024, 10,13, 13, 13, 15), true);
+        scoreBoardManager.processGame(thirdGame);
+        final Game firstGameUpdated = updateGame(firstGame, 5, 1, true);
+        final Game thirdGameUpdated = updateGame(thirdGame, 6, 0, true);
 
         //when
-        scoreBoardManager.updateScore(firstGameUpdated);
-        scoreBoardManager.updateScore(secondGameUpdated);
+        scoreBoardManager.processGame(firstGameUpdated);
+        scoreBoardManager.processGame(thirdGameUpdated);
 
         //then
         final List<Game> liveGames = scoreBoardManager.getLiveGames();
@@ -240,6 +237,10 @@ public class WorldCupScoreBoardManagerTest {
                 () -> assertEquals("Rossoneri", secondLiveGame.getHomeTeam()),
                 () -> assertEquals(6, secondLiveGame.getTotalScore()),
                 () -> assertEquals("ManU", thirdLiveGame.getHomeTeam()),
-                () -> assertEquals(0, thirdGame.getTotalScore()));
+                () -> assertEquals(0, thirdLiveGame.getTotalScore()));
+    }
+
+    private Game updateGame(final Game game, final Integer homeScore, final Integer awayScore, final boolean isLive) {
+        return new Game(game.getHomeTeam(), game.getAwayTeam(), homeScore, awayScore, game.getStartTime(), isLive);
     }
 }

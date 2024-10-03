@@ -1,5 +1,6 @@
 package lapera.world.cup.domain;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,21 +10,22 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@EqualsAndHashCode(exclude = {"homeScore", "awayScore", "isLive"})
 public class Game {
     private String homeTeam;
     private String awayTeam;
     private Integer homeScore;
     private Integer awayScore;
     private LocalDateTime startTime;
-    private boolean isFinished;
+    private boolean isLive;
 
-    public Game(String homeTeam, String awayTeam, Integer homeScore, Integer awayScore, boolean isFinished) {
+    public Game(final String homeTeam, final String awayTeam, final Integer homeScore, final Integer awayScore, final LocalDateTime startTime, final boolean isLive) {
         this.homeTeam = homeTeam;
         this.awayTeam = awayTeam;
         this.homeScore = homeScore;
         this.awayScore = awayScore;
-        this.startTime = LocalDateTime.now();
-        this.isFinished = isFinished;
+        this.startTime = startTime;
+        this.isLive = isLive;
     }
     
     public Integer getTotalScore() {

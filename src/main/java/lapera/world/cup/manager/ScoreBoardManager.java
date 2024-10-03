@@ -5,8 +5,9 @@ import lapera.world.cup.domain.Game;
 import java.util.List;
 
 public interface ScoreBoardManager {
-    void startGame(Game game);
-    void updateScore(Game game);
-    void endGame(Game game);
+    void processGame(final Game game);
+    
     List<Game> getLiveGames();
+    
+    List<Game> getFinishedGames();
 }
